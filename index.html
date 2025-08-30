@@ -555,13 +555,6 @@ Tu objetivo principal es simplificar conceptos, ofrecer explicaciones claras y c
   - **Noveno Grado:** https://sites.google.com/clases.edu.sv/matematica-pradera/noveno-grado
 - NO debes inventar ni proporcionar enlaces de video de ninguna otra fuente (como YouTube, Khan Academy, etc.). Si no encuentras un video relevante en los sitios proporcionados, informa amablemente al estudiante que no tienes un video sobre ese tema específico en la fuente oficial.
 
-**Capacidad de Generación de Imágenes:**
-- Cuando vayas a explicar un concepto que se pueda visualizar (como fracciones, figuras geométricas, etc.), puedes ofrecer generar una imagen para ayudar. Pregunta primero, por ejemplo: "¿Quieres que genere una imagen para ayudarte a visualizar esto?".
-- Si el usuario acepta, debes incluir en tu respuesta una etiqueta especial para que yo pueda crear la imagen. La etiqueta debe ser: \`[GENERATE_IMAGE: prompt en inglés para la imagen]\`
-- **IMPORTANTE:** El texto dentro de la etiqueta (el "prompt") DEBE estar en inglés y ser descriptivo y sencillo para un modelo de IA.
-- Puedes añadir texto normal antes o después de la etiqueta.
-- Ejemplo de respuesta si el usuario quiere una imagen de "un medio": "¡Excelente idea! Aquí tienes una imagen que lo representa. [GENERATE_IMAGE: A simple pie chart showing 1 of 2 equal parts colored in, representing the fraction 1/2.] ¿Ves cómo la parte coloreada es la mitad del círculo?"
-
 **Capacidad de Análisis de Imágenes:**
 - Ahora también puedes recibir imágenes. Si un estudiante te envía una imagen de un ejercicio matemático, tu tarea es analizarla, comprender el problema y proporcionar una solución paso a paso de manera clara y concisa.
 - Asegúrate de explicar el razonamiento detrás de cada paso. Tu objetivo es que el estudiante entienda CÓMO resolver el problema, no solo darle la respuesta.
@@ -800,50 +793,10 @@ async function handleStream(responseStream, modelMessageElement) {
     let fullResponse = '';
     for await (const chunk of responseStream) {
         fullResponse += chunk.text;
-        const textToShow = fullResponse.replace(/\[GENERATE_IMAGE:.*?\]/g, '').trim();
-        textContentElement.innerHTML = await marked.parse(textToShow);
+        textContentElement.innerHTML = await marked.parse(fullResponse);
         scrollToBottom();
     }
     return fullResponse;
-}
-
-async function generateImage(prompt) {
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: `simple, clear, educational illustration for a child, math concept: ${prompt}. Clean background, vibrant colors.`,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/jpeg',
-                aspectRatio: '1:1',
-            },
-        });
-        const base64ImageBytes = response.generatedImages[0].image.imageBytes;
-        return `data:image/jpeg;base64,${base64ImageBytes}`;
-    } catch (error) {
-        console.error("Error generating image:", error);
-        return '';
-    }
-}
-
-async function processResponseForImages(fullResponse, messageElement) {
-    const imageMatch = fullResponse.match(/\[GENERATE_IMAGE:(.*?)\]/);
-    if (imageMatch && imageMatch[1]) {
-        const imagePrompt = imageMatch[1].trim();
-        const imageContainer = document.createElement('div');
-        imageContainer.classList.add('image-container');
-        imageContainer.innerHTML = `<p class="image-loading">Generando una ayuda visual...</p>`;
-        messageElement.appendChild(imageContainer);
-        scrollToBottom();
-
-        const imageUrl = await generateImage(imagePrompt);
-        if (imageUrl) {
-            imageContainer.innerHTML = `<img src="${imageUrl}" alt="Ayuda visual para: ${imagePrompt}" />`;
-        } else {
-            imageContainer.innerHTML = `<p class="image-error">Lo siento, no pude crear la imagen esta vez.</p>`;
-        }
-        scrollToBottom();
-    }
 }
 
 function handleFileSelect(file) {
@@ -974,17 +927,17 @@ chatForm.addEventListener('submit', async (e) => {
         }
         const modelMessageElement = await displayMessage('', 'model');
         const fullResponseText = await handleStream(responseStream, modelMessageElement);
-        await processResponseForImages(fullResponseText, modelMessageElement);
         
-        const textToSpeak = fullResponseText.replace(/\[GENERATE_IMAGE:.*?\]/g, '').trim();
-        if (textToSpeak) {
+        const textToSpeakRaw = fullResponseText.trim();
+        if (textToSpeakRaw) {
             const speakerTemplate = document.getElementById('speaker-btn-template');
             if (speakerTemplate) {
                 const speakerBtnFragment = speakerTemplate.content.cloneNode(true);
                 const speakerBtn = speakerBtnFragment.querySelector('.speaker-btn');
                 if (speakerBtn) {
+                    const cleanTextToSpeak = textToSpeakRaw.replace(/\*/g, '');
                     speakerBtn.addEventListener('click', () => {
-                        speak(textToSpeak);
+                        speak(cleanTextToSpeak);
                     });
                     modelMessageElement.appendChild(speakerBtnFragment);
                 }
